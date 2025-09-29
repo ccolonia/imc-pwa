@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>IMC App</title>
+  <meta name="description" content="Calculadora de Índice de Masa Corporal con historial y gráfico">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="theme-color" content="#00796b">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body {
+      background: linear-gradient(135deg, #e0f7fa, #f5f5f5);
+      padding: 15px;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+      overflow: hidden;
+    }
+    header {
+      background: #00796b;
+      color: white;
+      padding: 24px 20px;
+      text-align: center;
+    }
+    header h1 { font-size: 26px; font-weight: 700; }
+    .content { padding: 22px; }
+    .input-group { margin-bottom: 18px; }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #222;
+    }
+    input {
+      width: 100%;
+      padding: 14px;
+      border: 2px solid #ddd;
+      border-radius: 12px;
+      font-size: 17px;
+      background: #fafafa;
+    }
+    input:focus {
+      border-color: #00796b;
+      background: white;
+      outline: none;
+    }
+    button {
+      width: 100%;
+      padding: 15px;
+      background: #00796b;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 19px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: background 0.2s;
+    }
+    button:hover, button:focus { background: #005f56; }
+    #resultado {
+      margin-top: 22px;
+      padding: 18px;
+      border-radius: 14px;
+      text-align: center;
+      display: none;
+      background: #f0f9f8;
+      border: 2px solid #b2dfdb;
+    }
+    .imc-valor { font-size: 32px; font-weight: 800; color: #00796b; }
+    .categoria { font-size: 22px; font-weight: 700; margin-top: 10px; color: #004d40; }
+    #grafico-container { margin-top: 25px; height: 220px; }
+    #historial { margin-top: 28px; }
+    #historial h3 { margin-bottom: 14px; color: #00796b; font-size: 20px; }
+    #lista-historial {
+      list-style: none;
+      max-height: 220px;
+      overflow-y: auto;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 12px;
+      background: #fcfcfc;
+    }
+    #lista-historial li { padding: 10px 0; border-bottom: 1px solid #eee; }
+    #lista-historial li:last-child { border-bottom: none; }
+    .btn-clear {
+      background: #f44336;
+      margin-top: 16px;
+      font-size: 17px;
+    }
+    .btn-clear:hover { background: #d32f2f; }
+    .nota {
+      margin-top: 22px;
+      font-size: 13px;
+      color: #666;
+      text-align: center;
+      line-height: 1.5;
+    }
+    @media (max-width: 480px) {
+      header { padding: 18px 15px; }
+      header h1 { font-size: 22px; }
+      .content { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Calculadora de IMC</h1>
+      <p>Tu salud en un solo lugar</p>
+    </header>
+    <div class="content">
+      <div class="input-group">
+        <label for="peso">Peso (kg):</label>
+        <input type="number" id="peso" placeholder="Ej. 70" min="1" step="0.1">
+      </div>
+      <div class="input-group">
+        <label for="altura">Altura (m):</label>
+        <input type="number" id="altura" placeholder="Ej. 1.75" min="0.5" max="2.5" step="0.01">
+      </div>
+      <button onclick="calcularIMC()">Calcular IMC</button>
+
+      <div id="resultado"></div>
+
+      <div id="grafico-container">
+        <canvas id="graficoIMC"></canvas>
+      </div>
+
+      <div id="historial">
+        <h3>Historial guardado</h3>
+        <ul id="lista-historial"></ul>
+        <button class="btn-clear" onclick="limpiarHistorial()">Limpiar historial</button>
+      </div>
+
+      <p class="nota">
+        ℹ️ Esta app se guarda en tu dispositivo. Funciona sin internet y protege tu privacidad.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    let historial = JSON.parse(localStorage.getItem('imcHistorial')) || [];
+    let grafico = null;
+
+    function calcularIMC() {
+      const peso = parseFloat(document.getElementById('peso').value);
+      const altura = parseFloat(document.getElementById('altura').value);
+
+      if (isNaN(peso) || isNaN(altura) || peso <= 0 || altura <= 0 || altura > 3) {
+        alert('Ingresa peso (kg) y altura (m) válidos.');
+        return;
+      }
+
+      const imc = parseFloat((peso / (altura * altura)).toFixed(2));
+      let categoria, color;
+      if (imc < 18.5) {
+        categoria = "Bajo peso";
+        color = 'rgba(25, 118, 210, 0.7)';
+      } else if (imc <= 24.9) {
+        categoria = "Peso normal";
+        color = 'rgba(56, 142, 60, 0.7)';
+      } else if (imc <= 29.9) {
+        categoria = "Sobrepeso";
+        color = 'rgba(245, 124, 0, 0.7)';
+      } else {
+        categoria = "Obesidad";
+        color = 'rgba(211, 47, 47, 0.7)';
+      }
+
+      const entrada = {
+        fecha: new Date().toLocaleString('es-ES'),
+        imc,
+        categoria,
+        peso,
+        altura
+      };
+      historial.unshift(entrada);
+      if (historial.length > 20) historial.pop();
+      localStorage.setItem('imcHistorial', JSON.stringify(historial));
+
+      document.getElementById('resultado').innerHTML = `
+        <div class="imc-valor">IMC: ${imc}</div>
+        <div class="categoria">${categoria}</div>
+      `;
+      document.getElementById('resultado').style.display = 'block';
+
+      actualizarGrafico(imc, color);
+      mostrarHistorial();
+    }
+
+    function actualizarGrafico(imc, color) {
+      const ctx = document.getElementById('graficoIMC').getContext('2d');
+      if (grafico) grafico.destroy();
+
+      grafico = new Chart(ctx, {
+        type: 'bar',
+         {
+          labels: ['Tu IMC'],
+          datasets: [{
+            label: 'IMC',
+             [imc],
+            backgroundColor: [color],
+            borderColor: [color.replace('0.7', '1')],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 40,
+              ticks: { stepSize: 5 }
+            }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    function mostrarHistorial() {
+      const lista = document.getElementById('lista-historial');
+      lista.innerHTML = '';
+      if (historial.length === 0) {
+        lista.innerHTML = '<li>No hay cálculos guardados.</li>';
+        return;
+      }
+      historial.forEach(item => {
+        const li = document.createElement('li');
+        li.innerHTML = `<strong>${item.imc}</strong> - ${item.categoria}<br>
+          <small>${item.fecha} | ${item.peso} kg, ${item.altura} m</small>`;
+        lista.appendChild(li);
+      });
+    }
+
+    function limpiarHistorial() {
+      if (confirm('¿Borrar todo el historial?')) {
+        historial = [];
+        localStorage.removeItem('imcHistorial');
+        mostrarHistorial();
+        if (grafico) grafico.destroy();
+        document.getElementById('resultado').style.display = 'none';
+      }
+    }
+
+    window.onload = () => {
+      mostrarHistorial();
+      if (historial.length > 0) {
+        const ultimo = historial[0];
+        let color;
+        if (ultimo.imc < 18.5) color = 'rgba(25, 118, 210, 0.7)';
+        else if (ultimo.imc <= 24.9) color = 'rgba(56, 142, 60, 0.7)';
+        else if (ultimo.imc <= 29.9) color = 'rgba(245, 124, 0, 0.7)';
+        else color = 'rgba(211, 47, 47, 0.7)';
+        actualizarGrafico(ultimo.imc, color);
+        document.getElementById('resultado').innerHTML = `
+          <div class="imc-valor">IMC: ${ultimo.imc}</div>
+          <div class="categoria">${ultimo.categoria}</div>
+        `;
+        document.getElementById('resultado').style.display = 'block';
+      }
+    };
+
+    document.addEventListener('keypress', e => {
+      if (e.key === 'Enter') calcularIMC();
+    });
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => console.log('SW registrado'))
+          .catch(err => console.log('Error al registrar SW:', err));
+      });
+    }
+  </script>
+</body>
+</html>
