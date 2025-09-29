@@ -147,141 +147,141 @@
     </div>
   </div>
 
-  <script>
-    let historial = JSON.parse(localStorage.getItem('imcHistorial')) || [];
-    let grafico = null;
+ <script>
+  let historial = JSON.parse(localStorage.getItem('imcHistorial')) || [];
+  let grafico = null;
 
-    function calcularIMC() {
-      const peso = parseFloat(document.getElementById('peso').value);
-      const altura = parseFloat(document.getElementById('altura').value);
+  function calcularIMC() {
+    const peso = parseFloat(document.getElementById('peso').value);
+    const altura = parseFloat(document.getElementById('altura').value);
 
-      if (isNaN(peso) || isNaN(altura) || peso <= 0 || altura <= 0 || altura > 3) {
-        alert('Ingresa peso (kg) y altura (m) válidos.');
-        return;
+    if (isNaN(peso) || isNaN(altura) || peso <= 0 || altura <= 0 || altura > 3) {
+      alert('Ingresa peso (kg) y altura (m) válidos.');
+      return;
+    }
+
+    const imc = parseFloat((peso / (altura * altura)).toFixed(2));
+    let categoria, color;
+    if (imc < 18.5) {
+      categoria = "Bajo peso";
+      color = 'rgba(25, 118, 210, 0.7)';
+    } else if (imc <= 24.9) {
+      categoria = "Peso normal";
+      color = 'rgba(56, 142, 60, 0.7)';
+    } else if (imc <= 29.9) {
+      categoria = "Sobrepeso";
+      color = 'rgba(245, 124, 0, 0.7)';
+    } else {
+      categoria = "Obesidad";
+      color = 'rgba(211, 47, 47, 0.7)';
+    }
+
+    const entrada = {
+      fecha: new Date().toLocaleString('es-ES'),
+      imc,
+      categoria,
+      peso,
+      altura
+    };
+    historial.unshift(entrada);
+    if (historial.length > 20) historial.pop();
+    localStorage.setItem('imcHistorial', JSON.stringify(historial));
+
+    document.getElementById('resultado').innerHTML = `
+      <div class="imc-valor">IMC: ${imc}</div>
+      <div class="categoria">${categoria}</div>
+    `;
+    document.getElementById('resultado').style.display = 'block';
+
+    actualizarGrafico(imc, color);
+    mostrarHistorial();
+  }
+
+  function actualizarGrafico(imc, color) {
+    const ctx = document.getElementById('graficoIMC').getContext('2d');
+    if (grafico) grafico.destroy();
+
+    grafico = new Chart(ctx, {
+      type: 'bar',
+       {  // ← ¡CORREGIDO! Esta línea era la que faltaba
+        labels: ['Tu IMC'],
+        datasets: [{
+          label: 'IMC',
+           [imc],
+          backgroundColor: [color],
+          borderColor: [color.replace('0.7', '1')],
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 40,
+            ticks: { stepSize: 5 }
+          }
+        },
+        plugins: { legend: { display: false } }
       }
+    });
+  }
 
-      const imc = parseFloat((peso / (altura * altura)).toFixed(2));
-      let categoria, color;
-      if (imc < 18.5) {
-        categoria = "Bajo peso";
-        color = 'rgba(25, 118, 210, 0.7)';
-      } else if (imc <= 24.9) {
-        categoria = "Peso normal";
-        color = 'rgba(56, 142, 60, 0.7)';
-      } else if (imc <= 29.9) {
-        categoria = "Sobrepeso";
-        color = 'rgba(245, 124, 0, 0.7)';
-      } else {
-        categoria = "Obesidad";
-        color = 'rgba(211, 47, 47, 0.7)';
-      }
+  function mostrarHistorial() {
+    const lista = document.getElementById('lista-historial');
+    lista.innerHTML = '';
+    if (historial.length === 0) {
+      lista.innerHTML = '<li>No hay cálculos guardados.</li>';
+      return;
+    }
+    historial.forEach(item => {
+      const li = document.createElement('li');
+      li.innerHTML = `<strong>${item.imc}</strong> - ${item.categoria}<br>
+        <small>${item.fecha} | ${item.peso} kg, ${item.altura} m</small>`;
+      lista.appendChild(li);
+    });
+  }
 
-      const entrada = {
-        fecha: new Date().toLocaleString('es-ES'),
-        imc,
-        categoria,
-        peso,
-        altura
-      };
-      historial.unshift(entrada);
-      if (historial.length > 20) historial.pop();
-      localStorage.setItem('imcHistorial', JSON.stringify(historial));
+  function limpiarHistorial() {
+    if (confirm('¿Borrar todo el historial?')) {
+      historial = [];
+      localStorage.removeItem('imcHistorial');
+      mostrarHistorial();
+      if (grafico) grafico.destroy();
+      document.getElementById('resultado').style.display = 'none';
+    }
+  }
 
+  window.onload = () => {
+    mostrarHistorial();
+    if (historial.length > 0) {
+      const ultimo = historial[0];
+      let color;
+      if (ultimo.imc < 18.5) color = 'rgba(25, 118, 210, 0.7)';
+      else if (ultimo.imc <= 24.9) color = 'rgba(56, 142, 60, 0.7)';
+      else if (ultimo.imc <= 29.9) color = 'rgba(245, 124, 0, 0.7)';
+      else color = 'rgba(211, 47, 47, 0.7)';
+      actualizarGrafico(ultimo.imc, color);
       document.getElementById('resultado').innerHTML = `
-        <div class="imc-valor">IMC: ${imc}</div>
-        <div class="categoria">${categoria}</div>
+        <div class="imc-valor">IMC: ${ultimo.imc}</div>
+        <div class="categoria">${ultimo.categoria}</div>
       `;
       document.getElementById('resultado').style.display = 'block';
-
-      actualizarGrafico(imc, color);
-      mostrarHistorial();
     }
+  };
 
-    function actualizarGrafico(imc, color) {
-      const ctx = document.getElementById('graficoIMC').getContext('2d');
-      if (grafico) grafico.destroy();
+  document.addEventListener('keypress', e => {
+    if (e.key === 'Enter') calcularIMC();
+  });
 
-      grafico = new Chart(ctx, {
-        type: 'bar',
-         {
-          labels: ['Tu IMC'],
-          datasets: [{
-            label: 'IMC',
-             [imc],
-            backgroundColor: [color],
-            borderColor: [color.replace('0.7', '1')],
-            borderWidth: 1
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: {
-              beginAtZero: true,
-              max: 40,
-              ticks: { stepSize: 5 }
-            }
-          },
-          plugins: { legend: { display: false } }
-        }
-      });
-    }
-
-    function mostrarHistorial() {
-      const lista = document.getElementById('lista-historial');
-      lista.innerHTML = '';
-      if (historial.length === 0) {
-        lista.innerHTML = '<li>No hay cálculos guardados.</li>';
-        return;
-      }
-      historial.forEach(item => {
-        const li = document.createElement('li');
-        li.innerHTML = `<strong>${item.imc}</strong> - ${item.categoria}<br>
-          <small>${item.fecha} | ${item.peso} kg, ${item.altura} m</small>`;
-        lista.appendChild(li);
-      });
-    }
-
-    function limpiarHistorial() {
-      if (confirm('¿Borrar todo el historial?')) {
-        historial = [];
-        localStorage.removeItem('imcHistorial');
-        mostrarHistorial();
-        if (grafico) grafico.destroy();
-        document.getElementById('resultado').style.display = 'none';
-      }
-    }
-
-    window.onload = () => {
-      mostrarHistorial();
-      if (historial.length > 0) {
-        const ultimo = historial[0];
-        let color;
-        if (ultimo.imc < 18.5) color = 'rgba(25, 118, 210, 0.7)';
-        else if (ultimo.imc <= 24.9) color = 'rgba(56, 142, 60, 0.7)';
-        else if (ultimo.imc <= 29.9) color = 'rgba(245, 124, 0, 0.7)';
-        else color = 'rgba(211, 47, 47, 0.7)';
-        actualizarGrafico(ultimo.imc, color);
-        document.getElementById('resultado').innerHTML = `
-          <div class="imc-valor">IMC: ${ultimo.imc}</div>
-          <div class="categoria">${ultimo.categoria}</div>
-        `;
-        document.getElementById('resultado').style.display = 'block';
-      }
-    };
-
-    document.addEventListener('keypress', e => {
-      if (e.key === 'Enter') calcularIMC();
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => console.log('SW registrado'))
+        .catch(err => console.log('Error al registrar SW:', err));
     });
-
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js')
-          .then(reg => console.log('SW registrado'))
-          .catch(err => console.log('Error al registrar SW:', err));
-      });
-    }
-  </script>
+  }
+</script>
 </body>
 </html>
